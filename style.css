@@ -238,3 +238,64 @@ h1 {
     margin: 0;
     font-size: 0.9em;
 }
+
+/* MIDI Connection Status */
+.midi-status {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #95a5a6;
+    display: inline-block;
+    transition: background 0.3s;
+}
+
+.status-dot.connected {
+    background: #2ecc71;
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+}
+
+.status-dot.disconnected {
+    background: #e74c3c;
+}
+
+.device-list {
+    margin-top: 8px;
+    padding-left: 18px;
+    font-size: 0.85em;
+    color: #666;
+}
+
+.device-item {
+    padding: 4px 0;
+    color: #2ecc71;
+    font-weight: 500;
+}
+
+/* Input Status on Start Screen */
+.input-status {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.input-status .status-indicator {
+    justify-content: center;
+    font-size: 0.85em;
+    color: #2ecc71;
+    font-weight: 500;
+}

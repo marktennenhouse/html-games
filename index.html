@@ -115,7 +115,15 @@
                     <p id="configPreview">Note Mode: Up=C, Down=G</p>
                 </div>
                 
-                <button id="savePianoConfig" class="game-button">Save & Continue</button>
+                <div id="midiStatus" class="midi-status">
+                    <div class="status-indicator">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Not connected</span>
+                    </div>
+                    <div id="deviceList" class="device-list"></div>
+                </div>
+                
+                <button id="savePianoConfig" class="game-button">Connect & Continue</button>
                 <button id="skipPianoConfig" class="game-button secondary">Use Keyboard Instead</button>
             </div>
         </div>
@@ -125,6 +133,14 @@
             <div class="menu">
                 <h1>Flappy Bird</h1>
                 <p class="instructions">Press <strong>UP ARROW</strong> or <strong>DOWN ARROW</strong> to move</p>
+                
+                <div id="gameInputStatus" class="input-status hidden">
+                    <div class="status-indicator">
+                        <span class="status-dot connected" id="gameStatusDot"></span>
+                        <span id="gameStatusText"></span>
+                    </div>
+                </div>
+                
                 <div class="speed-control">
                     <label for="speedSlider">Game Speed:</label>
                     <div class="slider-container">

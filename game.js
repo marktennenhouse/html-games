@@ -307,6 +307,14 @@ const configPreview = document.getElementById('configPreview');
 const savePianoConfigButton = document.getElementById('savePianoConfig');
 const skipPianoConfigButton = document.getElementById('skipPianoConfig');
 
+// MIDI Status UI elements
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const deviceList = document.getElementById('deviceList');
+const gameInputStatus = document.getElementById('gameInputStatus');
+const gameStatusDot = document.getElementById('gameStatusDot');
+const gameStatusText = document.getElementById('gameStatusText');
+
 // Toggle between Note and Chord config
 inputModeSelect.addEventListener('change', () => {
     updateConfigUI();
@@ -354,21 +362,86 @@ function updateConfigPreview() {
     configPreview.textContent = pianoMapper.getConfigDescription();
 }
 
+// Update MIDI connection status display
+function updateConnectionStatus() {
+    const status = pianoMapper.getConnectionStatus();
+    
+    if (status.connected) {
+        statusDot.className = 'status-dot connected';
+        statusText.textContent = `Connected (${status.deviceCount} device${status.deviceCount > 1 ? 's' : ''})`;
+        
+        // Show device list
+        deviceList.innerHTML = '';
+        status.devices.forEach(device => {
+            const deviceItem = document.createElement('div');
+            deviceItem.className = 'device-item';
+            deviceItem.textContent = `🎹 ${device.name}`;
+            deviceList.appendChild(deviceItem);
+        });
+    } else {
+        statusDot.className = 'status-dot disconnected';
+        statusText.textContent = 'Not connected';
+        deviceList.innerHTML = '';
+    }
+}
+
 // Save piano config and initialize MIDI
 savePianoConfigButton.addEventListener('click', async () => {
     updateConfigPreview(); // Apply final config
+    
+    // Show connecting status
+    statusText.textContent = 'Connecting...';
+    statusDot.className = 'status-dot';
     
     const success = await pianoMapper.init();
     
     if (success) {
         usePiano = true;
+        updateConnectionStatus();
+        
+        // Set up connection change listener
+        pianoMapper.onConnectionChange = (status) => {
+            updateConnectionStatus();
+            
+            // Show warning if disconnected during gameplay
+            if (!status.connected && gameRunning) {
+                console.warn('MIDI device disconnected during gameplay!');
+                // Note: Game will still work with keyboard
+            }
+            
+            // Update game screen status if visible
+            if (!pianoConfigScreen.classList.contains('hidden') === false) {
+                updateGameInputStatus();
+            }
+        };
+        
         pianoConfigScreen.classList.add('hidden');
         startScreen.classList.remove('hidden');
+        updateGameInputStatus();
         console.log('Piano input enabled:', pianoMapper.getConfigDescription());
     } else {
+        updateConnectionStatus();
         alert('Could not connect to MIDI device. Please check your piano connection and try again, or use keyboard instead.');
     }
 });
+
+// Update input status on game start screen
+function updateGameInputStatus() {
+    if (usePiano) {
+        const status = pianoMapper.getConnectionStatus();
+        gameInputStatus.classList.remove('hidden');
+        
+        if (status.connected) {
+            gameStatusDot.className = 'status-dot connected';
+            gameStatusText.textContent = `Piano: ${status.deviceNames}`;
+        } else {
+            gameStatusDot.className = 'status-dot disconnected';
+            gameStatusText.textContent = 'Piano disconnected (keyboard active)';
+        }
+    } else {
+        gameInputStatus.classList.add('hidden');
+    }
+}
 
 // Skip piano config and use keyboard
 skipPianoConfigButton.addEventListener('click', () => {

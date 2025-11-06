@@ -25,6 +25,11 @@ class PianoInputMapper {
         
         this.activeNotes = new Set();
         this.midiAccess = null;
+        this.connectedDevices = [];
+        this.isConnected = false;
+        
+        // Callbacks for connection events
+        this.onConnectionChange = null;
         
         // Music theory lookup tables
         this.noteToMidi = {
@@ -48,25 +53,63 @@ class PianoInputMapper {
     async init() {
         try {
             this.midiAccess = await navigator.requestMIDIAccess();
-            const inputs = this.midiAccess.inputs.values();
             
-            let deviceFound = false;
-            for (let input of inputs) {
-                input.onmidimessage = this.handleMIDI.bind(this);
-                deviceFound = true;
-            }
+            // Listen for device connection/disconnection
+            this.midiAccess.onstatechange = this.handleConnectionChange.bind(this);
             
-            if (!deviceFound) {
+            // Get initial devices
+            this.updateDeviceList();
+            
+            if (this.connectedDevices.length === 0) {
                 console.warn('No MIDI devices found');
+                this.isConnected = false;
                 return false;
             }
             
+            this.isConnected = true;
             console.log('Piano Input Mapper initialized');
+            console.log('Connected devices:', this.connectedDevices.map(d => d.name).join(', '));
             console.log('Config:', this.getConfigDescription());
             return true;
         } catch (error) {
             console.error('MIDI not available:', error);
+            this.isConnected = false;
             return false;
+        }
+    }
+    
+    // Update list of connected devices
+    updateDeviceList() {
+        this.connectedDevices = [];
+        const inputs = this.midiAccess.inputs.values();
+        
+        for (let input of inputs) {
+            if (input.state === 'connected') {
+                this.connectedDevices.push({
+                    id: input.id,
+                    name: input.name || 'Unknown Device',
+                    manufacturer: input.manufacturer || 'Unknown',
+                    state: input.state
+                });
+                input.onmidimessage = this.handleMIDI.bind(this);
+            }
+        }
+        
+        this.isConnected = this.connectedDevices.length > 0;
+    }
+    
+    // Handle device connection/disconnection
+    handleConnectionChange(event) {
+        console.log('MIDI device state changed:', event.port.name, event.port.state);
+        this.updateDeviceList();
+        
+        // Trigger callback if set
+        if (this.onConnectionChange) {
+            this.onConnectionChange({
+                connected: this.isConnected,
+                devices: this.connectedDevices,
+                event: event
+            });
         }
     }
     
@@ -152,6 +195,16 @@ class PianoInputMapper {
         } else {
             return `Chord Mode: Up=${this.config.upChord} ${this.config.upChordType}, Down=${this.config.downChord} ${this.config.downChordType}`;
         }
+    }
+    
+    // Get connection status info
+    getConnectionStatus() {
+        return {
+            connected: this.isConnected,
+            deviceCount: this.connectedDevices.length,
+            devices: this.connectedDevices,
+            deviceNames: this.connectedDevices.map(d => d.name).join(', ') || 'None'
+        };
     }
 }
 
