@@ -6,8 +6,10 @@ const ctx = canvas.getContext('2d');
 const pianoConfigScreen = document.getElementById('pianoConfigScreen');
 const startScreen = document.getElementById('startScreen');
 const gameOverScreen = document.getElementById('gameOverScreen');
+const pauseScreen = document.getElementById('pauseScreen');
 const startButton = document.getElementById('startButton');
 const restartButton = document.getElementById('restartButton');
+const resumeButton = document.getElementById('resumeButton');
 const speedSlider = document.getElementById('speedSlider');
 const speedValue = document.getElementById('speedValue');
 
@@ -22,6 +24,7 @@ let usePiano = false;
 // Game state
 let gameSpeed = 1.0;
 let gameRunning = false;
+let gamePaused = false;
 let animationId = null;
 let practiceMode = false;
 
@@ -96,9 +99,26 @@ restartButton.addEventListener('click', () => {
     init();
 });
 
+// Resume game from pause
+resumeButton.addEventListener('click', () => {
+    resumeGame();
+});
+
 // Keyboard controls - Track up/down state
 document.addEventListener('keydown', (e) => {
-    if (!gameRunning) return;
+    // Pause/Resume with Escape or P key
+    if (gameRunning && (e.code === 'Escape' || e.code === 'KeyP')) {
+        e.preventDefault();
+        if (gamePaused) {
+            resumeGame();
+        } else {
+            pauseGame();
+        }
+        return;
+    }
+    
+    if (!gameRunning || gamePaused) return;
+    
     if (e.code === 'ArrowUp') {
         e.preventDefault();
         keyboardState.up = true;
@@ -417,9 +437,22 @@ function gameOver() {
     gameOverScreen.classList.remove('hidden');
 }
 
+// Pause game
+function pauseGame() {
+    gamePaused = true;
+    pauseScreen.classList.remove('hidden');
+}
+
+// Resume game
+function resumeGame() {
+    gamePaused = false;
+    pauseScreen.classList.add('hidden');
+    gameLoop(); // Restart the game loop
+}
+
 // Game loop
 function gameLoop() {
-    if (!gameRunning) return;
+    if (!gameRunning || gamePaused) return;
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
