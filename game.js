@@ -27,8 +27,10 @@ let practiceMode = false;
 
 // Practice mode scroll control
 let pipeScrollEnabled = true;
-let lastCollisionX = 0;
-let clearThreshold = 60; // Distance to move forward to resume scrolling
+let lastCollisionY = 0;
+let collisionPipe = null;
+let collisionTime = 0;
+let autoResumeDelay = 1000; // Resume after 1 second if not cleared
 
 // Bird properties - Momentum-based physics
 const bird = {
@@ -67,7 +69,9 @@ function init() {
     pipes = [];
     frameCount = 0;
     pipeScrollEnabled = true;
-    lastCollisionX = 0;
+    lastCollisionY = 0;
+    collisionPipe = null;
+    collisionTime = 0;
 }
 
 // Update speed value display
@@ -333,8 +337,12 @@ function handlePracticeCollisions() {
                 bird.velocity = Math.abs(bird.velocity) * bounceDampening;
                 
                 // Pause scrolling and mark collision
-                pipeScrollEnabled = false;
-                lastCollisionX = bird.x;
+                if (pipeScrollEnabled) {
+                    pipeScrollEnabled = false;
+                    lastCollisionY = bird.y;
+                    collisionPipe = pipe;
+                    collisionTime = Date.now();
+                }
             }
             
             // Bottom pipe collision
@@ -343,8 +351,12 @@ function handlePracticeCollisions() {
                 bird.velocity = -Math.abs(bird.velocity) * bounceDampening;
                 
                 // Pause scrolling and mark collision
-                pipeScrollEnabled = false;
-                lastCollisionX = bird.x;
+                if (pipeScrollEnabled) {
+                    pipeScrollEnabled = false;
+                    lastCollisionY = bird.y;
+                    collisionPipe = pipe;
+                    collisionTime = Date.now();
+                }
             }
         }
         
@@ -353,8 +365,6 @@ function handlePracticeCollisions() {
             bird.x < pipe.x + pipeWidth / 2 &&
             (bird.y < pipe.top || bird.y > pipe.bottom)) {
             
-            const centerY = (pipe.top + pipe.bottom) / 2;
-            
             // Check if hitting from the left side
             if (bird.x < pipe.x + bird.radius) {
                 bird.x = pipe.x - bird.radius - 1;
@@ -362,8 +372,12 @@ function handlePracticeCollisions() {
                 bird.velocity *= bounceDampening;
                 
                 // Pause scrolling and mark collision
-                pipeScrollEnabled = false;
-                lastCollisionX = bird.x;
+                if (pipeScrollEnabled) {
+                    pipeScrollEnabled = false;
+                    lastCollisionY = bird.y;
+                    collisionPipe = pipe;
+                    collisionTime = Date.now();
+                }
             }
         }
     });
@@ -372,9 +386,26 @@ function handlePracticeCollisions() {
 // Check if bird has moved past collision point to resume scrolling
 function checkScrollResume() {
     if (practiceMode && !pipeScrollEnabled) {
-        // Resume scrolling if bird has moved forward past the collision point
-        if (bird.x > lastCollisionX + clearThreshold) {
+        const currentTime = Date.now();
+        const timeSinceCollision = currentTime - collisionTime;
+        
+        // Resume scrolling if:
+        // 1. Auto-resume delay has passed (1 second)
+        if (timeSinceCollision > autoResumeDelay) {
             pipeScrollEnabled = true;
+            collisionPipe = null;
+            return;
+        }
+        
+        // 2. Bird has moved through the gap (vertically cleared the collision zone)
+        if (collisionPipe) {
+            const inGap = bird.y > collisionPipe.top && bird.y < collisionPipe.bottom;
+            const clearedVertically = Math.abs(bird.y - lastCollisionY) > 40;
+            
+            if (inGap || clearedVertically) {
+                pipeScrollEnabled = true;
+                collisionPipe = null;
+            }
         }
     }
 }
