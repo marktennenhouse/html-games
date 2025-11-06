@@ -175,12 +175,14 @@ h1 {
 
 /* Piano Configuration Styles */
 .config-menu {
-    max-width: 400px;
-    padding: 35px;
+    max-width: 380px;
+    max-height: 90vh;
+    padding: 20px;
+    overflow-y: auto;
 }
 
 .config-section {
-    margin-bottom: 25px;
+    margin-bottom: 15px;
     text-align: left;
 }
 
@@ -188,21 +190,21 @@ h1 {
     display: block;
     color: #333;
     font-weight: bold;
-    margin-bottom: 8px;
-    font-size: 0.95em;
+    margin-bottom: 5px;
+    font-size: 0.9em;
 }
 
 .config-select {
     width: 100%;
-    padding: 10px 15px;
-    font-size: 1em;
+    padding: 8px 12px;
+    font-size: 0.95em;
     border: 2px solid #ddd;
     border-radius: 8px;
     background: white;
     color: #333;
     cursor: pointer;
     transition: border-color 0.2s;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .config-select:hover {
@@ -217,22 +219,22 @@ h1 {
 
 .config-preview {
     background: #f8f9fa;
-    padding: 15px;
+    padding: 12px;
     border-radius: 8px;
-    margin-bottom: 25px;
+    margin-bottom: 15px;
     text-align: left;
 }
 
 .config-preview strong {
     color: #333;
     display: block;
-    margin-bottom: 8px;
-    font-size: 0.95em;
+    margin-bottom: 6px;
+    font-size: 0.85em;
 }
 
 .config-preview p {
     color: #667eea;
     font-weight: bold;
     margin: 0;
-    font-size: 1em;
+    font-size: 0.9em;
 }
