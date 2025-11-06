@@ -3,6 +3,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // UI elements
+const pianoConfigScreen = document.getElementById('pianoConfigScreen');
 const startScreen = document.getElementById('startScreen');
 const gameOverScreen = document.getElementById('gameOverScreen');
 const startButton = document.getElementById('startButton');
@@ -10,20 +11,36 @@ const restartButton = document.getElementById('restartButton');
 const speedSlider = document.getElementById('speedSlider');
 const speedValue = document.getElementById('speedValue');
 
+// Piano input mapper
+const pianoMapper = new PianoInputMapper({
+    mode: 'Note',
+    upNote: 'C',
+    downNote: 'G'
+});
+let usePiano = false;
+
 // Game state
 let gameSpeed = 1.0;
 let gameRunning = false;
 let animationId = null;
 
-// Bird properties
+// Bird properties - Momentum-based physics
 const bird = {
     x: 80,
     y: canvas.height / 2,
     radius: 15,
     velocity: 0,
-    gravity: 0.25,
-    jumpStrength: -4,
+    gravity: 0.15,        // Light gravity when no input
+    upThrust: -0.5,       // Upward acceleration
+    downThrust: 0.5,      // Downward acceleration
+    maxVelocity: 5,       // Speed cap
     rotation: 0
+};
+
+// Keyboard state
+let keyboardState = {
+    up: false,
+    down: false
 };
 
 // Pipe properties
@@ -64,11 +81,25 @@ restartButton.addEventListener('click', () => {
     init();
 });
 
-// Keyboard controls
+// Keyboard controls - Track up/down state
 document.addEventListener('keydown', (e) => {
-    if ((e.code === 'ArrowUp' || e.code === 'Space') && gameRunning) {
+    if (!gameRunning) return;
+    if (e.code === 'ArrowUp') {
         e.preventDefault();
-        bird.velocity = bird.jumpStrength;
+        keyboardState.up = true;
+    }
+    if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        keyboardState.down = true;
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowUp') {
+        keyboardState.up = false;
+    }
+    if (e.code === 'ArrowDown') {
+        keyboardState.down = false;
     }
 });
 
@@ -159,10 +190,39 @@ function drawBackground() {
     ctx.fillRect(0, canvas.height - 50, canvas.width, 10);
 }
 
-// Update bird physics
+// Check input from both keyboard and piano
+function isUpPressed() {
+    return keyboardState.up || (usePiano && pianoMapper.up);
+}
+
+function isDownPressed() {
+    return keyboardState.down || (usePiano && pianoMapper.down);
+}
+
+// Update bird physics - Momentum-based with thrust
 function updateBird() {
-    bird.velocity += bird.gravity * gameSpeed;
+    // Apply thrust based on input (keyboard or piano)
+    if (isUpPressed()) {
+        bird.velocity += bird.upThrust;
+    }
+    if (isDownPressed()) {
+        bird.velocity += bird.downThrust;
+    }
+    
+    // Apply light gravity when no input
+    if (!isUpPressed() && !isDownPressed()) {
+        bird.velocity += bird.gravity * gameSpeed;
+    }
+    
+    // Cap velocity
+    bird.velocity = Math.max(-bird.maxVelocity, 
+                            Math.min(bird.maxVelocity, bird.velocity));
+    
+    // Update position
     bird.y += bird.velocity * gameSpeed;
+    
+    // Add drag for smooth feel
+    bird.velocity *= 0.98;
 }
 
 // Update pipes
@@ -238,6 +298,85 @@ function gameLoop() {
     // Continue loop
     animationId = requestAnimationFrame(gameLoop);
 }
+
+// Piano Configuration UI Handlers
+const inputModeSelect = document.getElementById('inputMode');
+const noteModeConfig = document.getElementById('noteModeConfig');
+const chordModeConfig = document.getElementById('chordModeConfig');
+const configPreview = document.getElementById('configPreview');
+const savePianoConfigButton = document.getElementById('savePianoConfig');
+const skipPianoConfigButton = document.getElementById('skipPianoConfig');
+
+// Toggle between Note and Chord config
+inputModeSelect.addEventListener('change', () => {
+    updateConfigUI();
+    updateConfigPreview();
+});
+
+// Update preview when any config changes
+document.getElementById('upNote').addEventListener('change', updateConfigPreview);
+document.getElementById('downNote').addEventListener('change', updateConfigPreview);
+document.getElementById('upChord').addEventListener('change', updateConfigPreview);
+document.getElementById('upChordType').addEventListener('change', updateConfigPreview);
+document.getElementById('downChord').addEventListener('change', updateConfigPreview);
+document.getElementById('downChordType').addEventListener('change', updateConfigPreview);
+
+function updateConfigUI() {
+    const mode = inputModeSelect.value;
+    
+    if (mode === 'Note') {
+        noteModeConfig.classList.remove('hidden');
+        chordModeConfig.classList.add('hidden');
+    } else {
+        noteModeConfig.classList.add('hidden');
+        chordModeConfig.classList.remove('hidden');
+    }
+}
+
+function updateConfigPreview() {
+    const mode = inputModeSelect.value;
+    
+    const config = {
+        mode: mode
+    };
+    
+    if (mode === 'Note') {
+        config.upNote = document.getElementById('upNote').value;
+        config.downNote = document.getElementById('downNote').value;
+    } else {
+        config.upChord = document.getElementById('upChord').value;
+        config.upChordType = document.getElementById('upChordType').value;
+        config.downChord = document.getElementById('downChord').value;
+        config.downChordType = document.getElementById('downChordType').value;
+    }
+    
+    pianoMapper.updateConfig(config);
+    configPreview.textContent = pianoMapper.getConfigDescription();
+}
+
+// Save piano config and initialize MIDI
+savePianoConfigButton.addEventListener('click', async () => {
+    updateConfigPreview(); // Apply final config
+    
+    const success = await pianoMapper.init();
+    
+    if (success) {
+        usePiano = true;
+        pianoConfigScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+        console.log('Piano input enabled:', pianoMapper.getConfigDescription());
+    } else {
+        alert('Could not connect to MIDI device. Please check your piano connection and try again, or use keyboard instead.');
+    }
+});
+
+// Skip piano config and use keyboard
+skipPianoConfigButton.addEventListener('click', () => {
+    usePiano = false;
+    pianoConfigScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    console.log('Using keyboard input');
+});
 
 // Initialize on load
 init();
