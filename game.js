@@ -23,6 +23,7 @@ let usePiano = false;
 let gameSpeed = 1.0;
 let gameRunning = false;
 let animationId = null;
+let practiceMode = false;
 
 // Bird properties - Momentum-based physics
 const bird = {
@@ -68,6 +69,7 @@ speedSlider.addEventListener('input', (e) => {
 // Start game
 startButton.addEventListener('click', () => {
     gameSpeed = parseFloat(speedSlider.value);
+    practiceMode = document.getElementById('practiceMode').checked;
     startScreen.classList.add('hidden');
     gameRunning = true;
     init();
@@ -253,6 +255,11 @@ function updatePipes() {
 
 // Check collisions
 function checkCollisions() {
+    // Skip collision damage in practice mode
+    if (practiceMode) {
+        return;
+    }
+    
     // Ground and ceiling collision
     if (bird.y + bird.radius > canvas.height - 50 || bird.y - bird.radius < 0) {
         gameOver();
