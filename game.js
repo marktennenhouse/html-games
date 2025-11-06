@@ -25,12 +25,18 @@ let gameRunning = false;
 let animationId = null;
 let practiceMode = false;
 
+// Practice mode scroll control
+let pipeScrollEnabled = true;
+let lastCollisionX = 0;
+let clearThreshold = 60; // Distance to move forward to resume scrolling
+
 // Bird properties - Momentum-based physics
 const bird = {
     x: 80,
     y: canvas.height / 2,
     radius: 15,
     velocity: 0,
+    velocityX: 0,         // Horizontal velocity for practice mode bounces
     gravity: 0.15,        // Light gravity when no input
     upThrust: -0.5,       // Upward acceleration
     downThrust: 0.5,      // Downward acceleration
@@ -56,9 +62,12 @@ let pipeFrequency = 90; // frames between pipes
 function init() {
     bird.y = canvas.height / 2;
     bird.velocity = 0;
+    bird.velocityX = 0;
     bird.rotation = 0;
     pipes = [];
     frameCount = 0;
+    pipeScrollEnabled = true;
+    lastCollisionX = 0;
 }
 
 // Update speed value display
@@ -223,43 +232,63 @@ function updateBird() {
     // Update position
     bird.y += bird.velocity * gameSpeed;
     
+    // Handle horizontal velocity (for practice mode bounces)
+    if (practiceMode && bird.velocityX !== 0) {
+        bird.x += bird.velocityX * gameSpeed;
+        bird.velocityX *= 0.95; // Horizontal drag
+        
+        // Stop horizontal movement when nearly zero
+        if (Math.abs(bird.velocityX) < 0.1) {
+            bird.velocityX = 0;
+            bird.x = 80; // Return to default X position
+        }
+    }
+    
     // Add drag for smooth feel
     bird.velocity *= 0.98;
+    
+    // Check if should resume scrolling in practice mode
+    checkScrollResume();
 }
 
 // Update pipes
 function updatePipes() {
-    frameCount++;
-    
-    // Generate new pipes
-    if (frameCount % Math.floor(pipeFrequency / gameSpeed) === 0) {
-        const minHeight = 50;
-        const maxHeight = canvas.height - pipeGap - 100;
-        const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+    // Only update pipes if scrolling is enabled (or not in practice mode)
+    if (!practiceMode || pipeScrollEnabled) {
+        frameCount++;
         
-        pipes.push({
-            x: canvas.width,
-            top: topHeight,
-            bottom: topHeight + pipeGap
+        // Generate new pipes
+        if (frameCount % Math.floor(pipeFrequency / gameSpeed) === 0) {
+            const minHeight = 50;
+            const maxHeight = canvas.height - pipeGap - 100;
+            const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+            
+            pipes.push({
+                x: canvas.width,
+                top: topHeight,
+                bottom: topHeight + pipeGap
+            });
+        }
+        
+        // Move pipes
+        pipes.forEach(pipe => {
+            pipe.x -= pipeSpeed * gameSpeed;
         });
+        
+        // Remove off-screen pipes
+        pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
     }
-    
-    // Move pipes
-    pipes.forEach(pipe => {
-        pipe.x -= pipeSpeed * gameSpeed;
-    });
-    
-    // Remove off-screen pipes
-    pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
 }
 
 // Check collisions
 function checkCollisions() {
-    // Skip collision damage in practice mode
     if (practiceMode) {
+        // Practice mode: bounce physics instead of game over
+        handlePracticeCollisions();
         return;
     }
     
+    // Normal mode: Game over on collision
     // Ground and ceiling collision
     if (bird.y + bird.radius > canvas.height - 50 || bird.y - bird.radius < 0) {
         gameOver();
@@ -276,6 +305,78 @@ function checkCollisions() {
             }
         }
     });
+}
+
+// Handle collisions in practice mode with bounce physics
+function handlePracticeCollisions() {
+    const bounceDampening = 0.6; // Energy loss on bounce
+    
+    // Ground collision
+    if (bird.y + bird.radius > canvas.height - 50) {
+        bird.y = canvas.height - 50 - bird.radius;
+        bird.velocity = -Math.abs(bird.velocity) * bounceDampening;
+    }
+    
+    // Ceiling collision
+    if (bird.y - bird.radius < 0) {
+        bird.y = bird.radius;
+        bird.velocity = Math.abs(bird.velocity) * bounceDampening;
+    }
+    
+    // Pipe collisions
+    pipes.forEach(pipe => {
+        // Check if bird is in horizontal range of pipe
+        if (bird.x + bird.radius > pipe.x && bird.x - bird.radius < pipe.x + pipeWidth) {
+            // Top pipe collision
+            if (bird.y - bird.radius < pipe.top && bird.y > pipe.top - bird.radius * 2) {
+                bird.y = pipe.top + bird.radius;
+                bird.velocity = Math.abs(bird.velocity) * bounceDampening;
+                
+                // Pause scrolling and mark collision
+                pipeScrollEnabled = false;
+                lastCollisionX = bird.x;
+            }
+            
+            // Bottom pipe collision
+            if (bird.y + bird.radius > pipe.bottom && bird.y < pipe.bottom + bird.radius * 2) {
+                bird.y = pipe.bottom - bird.radius;
+                bird.velocity = -Math.abs(bird.velocity) * bounceDampening;
+                
+                // Pause scrolling and mark collision
+                pipeScrollEnabled = false;
+                lastCollisionX = bird.x;
+            }
+        }
+        
+        // Left side of pipe collision (bird hits front of pipe)
+        if (bird.x + bird.radius > pipe.x && 
+            bird.x < pipe.x + pipeWidth / 2 &&
+            (bird.y < pipe.top || bird.y > pipe.bottom)) {
+            
+            const centerY = (pipe.top + pipe.bottom) / 2;
+            
+            // Check if hitting from the left side
+            if (bird.x < pipe.x + bird.radius) {
+                bird.x = pipe.x - bird.radius - 1;
+                bird.velocityX = -Math.abs(bird.velocityX || 2) * bounceDampening;
+                bird.velocity *= bounceDampening;
+                
+                // Pause scrolling and mark collision
+                pipeScrollEnabled = false;
+                lastCollisionX = bird.x;
+            }
+        }
+    });
+}
+
+// Check if bird has moved past collision point to resume scrolling
+function checkScrollResume() {
+    if (practiceMode && !pipeScrollEnabled) {
+        // Resume scrolling if bird has moved forward past the collision point
+        if (bird.x > lastCollisionX + clearThreshold) {
+            pipeScrollEnabled = true;
+        }
+    }
 }
 
 // Game over
