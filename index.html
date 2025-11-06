@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <!-- Start Screen -->
+        <div id="startScreen" class="overlay">
+            <div class="menu">
+                <h1>Flappy Bird</h1>
+                <p class="instructions">Press <strong>UP ARROW</strong> or <strong>SPACE</strong> to flap</p>
+                <div class="speed-control">
+                    <label for="speedSlider">Game Speed:</label>
+                    <div class="slider-container">
+                        <span class="speed-label">0.5x</span>
+                        <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1">
+                        <span class="speed-label">2.0x</span>
+                    </div>
+                    <div class="speed-value">Current: <span id="speedValue">1.0x</span></div>
+                </div>
+                <button id="startButton" class="game-button">Start Game</button>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="overlay hidden">
+            <div class="menu">
+                <h1>Game Over!</h1>
+                <button id="restartButton" class="game-button">Play Again</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
