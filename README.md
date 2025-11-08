@@ -28,6 +28,7 @@ This repository contains two versions of the game:
   - Note mode: Single notes trigger up/down
   - Chord mode: Chords trigger up/down
   - Supports all 12 notes and chord types (Major, Minor, Diminished, Augmented)
+- Optional performance tracking via the Piano Skill Tracker API (`piano-tracker.js`)
   - Keyboard fallback if no MIDI device available
   - Reusable `PianoInputMapper` class for other games
 
@@ -45,6 +46,7 @@ This repository contains two versions of the game:
 2. Configure piano input (or skip to use keyboard)
    - Choose Note or Chord mode
    - Select which notes/chords control up and down
+   - (Optional) Ensure the Piano Skill Tracker API is reachable if you want performance logs
 3. Adjust game speed if desired
 4. Click "Start Game"
 5. Use UP/DOWN arrows or your configured piano input to control the bird
@@ -77,6 +79,20 @@ git checkout piano-input
 - Velocity drag: 0.98x per frame
 - State-based input system
 - MIDI input via Web MIDI API
+
+## Performance Tracking Integration
+
+The piano build includes optional reporting through the Piano Skill Tracker system:
+
+- `piano-tracker.js` is bundled locally (copied from the tracker game's integration package).  
+- Configure the API endpoint and identifiers inside the `TRACKING_SETTINGS` block in `game.js`.
+- When MIDI input is active and the tracker configuration resolves expected note/chord IDs, the game:
+  - Starts a tracker session alongside each gameplay run.
+  - Records every detected up/down action with its expected and played note/chord IDs.
+  - Ends the session with aggregate success/error counts so you can generate performance reports (session detail, mastery, transition analysis, etc.).
+- If the API is unreachable or IDs cannot be resolved, the tracking layer disables itself automatically.
+
+> Tip: run the Piano Skill Tracker backend locally (default `http://localhost:5000`) or adjust the base URL to match your deployment. The tracker expects reference data (keys, chords, progressions) to already exist in the piano system database.
 
 ## Browser Compatibility
 

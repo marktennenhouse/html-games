@@ -22,6 +22,10 @@ class PianoInputMapper {
             up: false,
             down: false
         };
+        this.prevState = {
+            up: false,
+            down: false
+        };
         
         this.activeNotes = new Set();
         this.midiAccess = null;
@@ -30,6 +34,8 @@ class PianoInputMapper {
         
         // Callbacks for connection events
         this.onConnectionChange = null;
+        this.onAction = null;
+        this.onRawMidi = null;
         
         // Music theory lookup tables
         this.noteToMidi = {
@@ -116,6 +122,20 @@ class PianoInputMapper {
     // Handle MIDI input
     handleMIDI(message) {
         const [status, note, velocity] = message.data;
+        const timestamp = Date.now();
+        
+        if (typeof this.onRawMidi === 'function') {
+            try {
+                this.onRawMidi({
+                    status,
+                    note,
+                    velocity,
+                    timestamp
+                });
+            } catch (err) {
+                console.error('Error in onRawMidi callback:', err);
+            }
+        }
         
         // Note on
         if (status === 144 && velocity > 0) {
@@ -127,11 +147,14 @@ class PianoInputMapper {
         }
         
         // Update state based on config
-        this.updateState();
+        this.updateState(note, timestamp);
     }
     
     // The magic happens here - detects based on mode
-    updateState() {
+    updateState(triggerNote = null, timestamp = Date.now()) {
+        const previousUp = this.prevState.up;
+        const previousDown = this.prevState.down;
+        
         if (this.config.mode === 'Note') {
             this.state.up = this.isNotePressed(this.config.upNote);
             this.state.down = this.isNotePressed(this.config.downNote);
@@ -139,6 +162,16 @@ class PianoInputMapper {
             this.state.up = this.isChordPressed(this.config.upChord, this.config.upChordType);
             this.state.down = this.isChordPressed(this.config.downChord, this.config.downChordType);
         }
+        
+        if (!previousUp && this.state.up) {
+            this.emitAction('up', triggerNote, timestamp);
+        }
+        if (!previousDown && this.state.down) {
+            this.emitAction('down', triggerNote, timestamp);
+        }
+        
+        this.prevState.up = this.state.up;
+        this.prevState.down = this.state.down;
     }
     
     // Check if a specific note is pressed (any octave)
@@ -205,6 +238,36 @@ class PianoInputMapper {
             devices: this.connectedDevices,
             deviceNames: this.connectedDevices.map(d => d.name).join(', ') || 'None'
         };
+    }
+    
+    emitAction(action, triggerNote, timestamp) {
+        if (typeof this.onAction !== 'function') {
+            return;
+        }
+        
+        const midiNotes = Array.from(this.activeNotes);
+        const noteNames = midiNotes.map(n => this.midiToNoteName(n));
+        
+        try {
+            this.onAction(action, {
+                action,
+                mode: this.config.mode,
+                midiNotes,
+                noteNames,
+                triggerNote,
+                timestamp
+            });
+        } catch (err) {
+            console.error('Error in onAction callback:', err);
+        }
+    }
+    
+    midiToNoteName(midi) {
+        const pitchClass = midi % 12;
+        const octave = Math.floor(midi / 12) - 1;
+        const candidates = Object.keys(this.noteToMidi).filter(key => this.noteToMidi[key] === pitchClass);
+        const preferred = candidates.find(key => !key.includes('b')) || candidates[0] || '?';
+        return `${preferred}${octave}`;
     }
 }
 

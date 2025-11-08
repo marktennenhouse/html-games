@@ -19,7 +19,47 @@ const pianoMapper = new PianoInputMapper({
     upNote: 'C',
     downNote: 'G'
 });
+pianoMapper.onAction = (action, details) => handlePianoAction(action, details);
 let usePiano = false;
+
+const TRACKING_SETTINGS = {
+    enabled: true,
+    apiBaseUrl: 'http://localhost:5000',
+    userId: 1,
+    gameId: 1,
+    skillLevelId: 1,
+    keyName: 'C Major',
+    progressionPreference: {
+        requiredOnly: true
+    },
+    batchSize: 15,
+    debug: false
+};
+
+const QUALITY_ALIASES = {
+    major: ['major', 'maj'],
+    minor: ['minor', 'min'],
+    diminished: ['diminished', 'dim'],
+    augmented: ['augmented', 'aug']
+};
+
+const trackingState = {
+    enabled: false,
+    ready: false,
+    tracker: null,
+    mode: pianoMapper.config.mode,
+    keyId: null,
+    progressionKeyId: null,
+    noteIdByPitchClass: new Map(),
+    chordIdBySignature: new Map(),
+    chordsMeta: [],
+    expectedIds: { up: null, down: null },
+    sessionActive: false,
+    sequence: 0,
+    lastPromptTimes: { up: null, down: null },
+    successCount: 0,
+    errorCount: 0
+};
 
 // Game state
 let gameSpeed = 1.0;
@@ -83,12 +123,13 @@ speedSlider.addEventListener('input', (e) => {
 });
 
 // Start game
-startButton.addEventListener('click', () => {
+startButton.addEventListener('click', async () => {
     gameSpeed = parseFloat(speedSlider.value);
     practiceMode = document.getElementById('practiceMode').checked;
     startScreen.classList.add('hidden');
     gameRunning = true;
     init();
+    await startTrackingSession();
     gameLoop();
 });
 
@@ -435,6 +476,7 @@ function gameOver() {
     gameRunning = false;
     cancelAnimationFrame(animationId);
     gameOverScreen.classList.remove('hidden');
+    endTrackingSession();
 }
 
 // Pause game
@@ -532,6 +574,7 @@ function updateConfigPreview() {
     
     pianoMapper.updateConfig(config);
     configPreview.textContent = pianoMapper.getConfigDescription();
+    refreshExpectedIdsFromConfig();
 }
 
 // Update MIDI connection status display
@@ -570,6 +613,7 @@ savePianoConfigButton.addEventListener('click', async () => {
     if (success) {
         usePiano = true;
         updateConnectionStatus();
+        await configureTrackingForPiano();
         
         // Set up connection change listener
         pianoMapper.onConnectionChange = (status) => {
@@ -593,6 +637,8 @@ savePianoConfigButton.addEventListener('click', async () => {
         console.log('Piano input enabled:', pianoMapper.getConfigDescription());
     } else {
         updateConnectionStatus();
+        trackingState.enabled = false;
+        trackingState.ready = false;
         alert('Could not connect to MIDI device. Please check your piano connection and try again, or use keyboard instead.');
     }
 });
@@ -618,10 +664,369 @@ function updateGameInputStatus() {
 // Skip piano config and use keyboard
 skipPianoConfigButton.addEventListener('click', () => {
     usePiano = false;
+    trackingState.enabled = false;
+    trackingState.ready = false;
     pianoConfigScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
     console.log('Using keyboard input');
 });
+
+// Tracking integration helpers
+function normalizeNoteName(note) {
+    if (!note) return '';
+    const trimmed = note.toString().trim()
+        .replace(/♯/g, '#')
+        .replace(/♭/g, 'b');
+    const match = trimmed.match(/^([A-Ga-g])([#b]?)/);
+    if (!match) {
+        return trimmed.toUpperCase();
+    }
+    const letter = match[1].toUpperCase();
+    const accidental = match[2] ? match[2].toLowerCase() : '';
+    return `${letter}${accidental}`;
+}
+
+function extractRootFromChordName(name) {
+    if (!name) return '';
+    const cleaned = name.split(/[\s(]/)[0];
+    const withoutSlash = cleaned.split('/')[0];
+    const withoutDash = withoutSlash.split('-')[0];
+    return normalizeNoteName(withoutDash);
+}
+
+function getPitchClassFromNote(note) {
+    const normalized = normalizeNoteName(note);
+    const pitch = pianoMapper.noteToMidi[normalized];
+    if (pitch === undefined) return null;
+    return ((pitch % 12) + 12) % 12;
+}
+
+function noteStringToMidi(noteStr) {
+    if (typeof noteStr !== 'string') return null;
+    const trimmed = noteStr.trim()
+        .replace(/♯/g, '#')
+        .replace(/♭/g, 'b');
+    const match = trimmed.match(/^([A-Ga-g])([#b]?)(-?\d)$/);
+    if (!match) return null;
+    const name = normalizeNoteName(`${match[1]}${match[2] || ''}`);
+    const octave = parseInt(match[3], 10);
+    if (Number.isNaN(octave)) return null;
+    const pitch = pianoMapper.noteToMidi[name];
+    if (pitch === undefined) return null;
+    return (octave + 1) * 12 + pitch;
+}
+
+function buildChordSignature(midiNotes) {
+    if (!Array.isArray(midiNotes)) return '';
+    const uniquePitchClasses = [...new Set(
+        midiNotes
+            .filter(n => typeof n === 'number' && Number.isFinite(n))
+            .map(n => ((Math.round(n) % 12) + 12) % 12)
+    )].sort((a, b) => a - b);
+    return uniquePitchClasses.join('-');
+}
+
+function extractMidiNumbersFromChord(chord) {
+    if (!chord) return [];
+    if (Array.isArray(chord.midiNumbers)) {
+        return chord.midiNumbers
+            .map(n => typeof n === 'number' ? n : parseInt(n, 10))
+            .filter(n => Number.isFinite(n));
+    }
+    let notes = chord.notes;
+    if (typeof notes === 'string') {
+        try {
+            notes = JSON.parse(notes);
+        } catch {
+            notes = [];
+        }
+    }
+    if (!Array.isArray(notes)) return [];
+    return notes
+        .map(noteStringToMidi)
+        .filter(n => n !== null);
+}
+
+function buildChordLookups(chords) {
+    trackingState.noteIdByPitchClass.clear();
+    trackingState.chordIdBySignature.clear();
+    trackingState.chordsMeta = [];
+    
+    chords.forEach((chord) => {
+        const chordId = chord?.chordId ?? chord?.id ?? null;
+        if (chordId === null) return;
+        
+        const midiNumbers = extractMidiNumbersFromChord(chord);
+        const pitchClasses = [...new Set(midiNumbers.map(n => ((n % 12) + 12) % 12))].sort((a, b) => a - b);
+        const signature = pitchClasses.join('-');
+        
+        const meta = {
+            chordId,
+            chordName: chord.chordName || chord.name || '',
+            chordQuality: chord.chordQuality || chord.quality || '',
+            chordType: chord.chordType || '',
+            inversionType: chord.inversionType || '',
+            pitchClasses,
+            signature
+        };
+        
+        trackingState.chordsMeta.push(meta);
+        
+        if (signature) {
+            trackingState.chordIdBySignature.set(signature, chordId);
+        }
+        
+        if (pitchClasses.length === 1 && !trackingState.noteIdByPitchClass.has(pitchClasses[0])) {
+            trackingState.noteIdByPitchClass.set(pitchClasses[0], chordId);
+        }
+    });
+}
+
+function findChordIdForConfig(root, chordTypeLabel) {
+    const normalizedRoot = normalizeNoteName(root);
+    const qualityKey = chordTypeLabel ? chordTypeLabel.toLowerCase() : 'major';
+    const allowedQualities = QUALITY_ALIASES[qualityKey] || [qualityKey];
+    
+    const candidates = trackingState.chordsMeta.filter(meta => {
+        const metaRoot = extractRootFromChordName(meta.chordName);
+        const metaQuality = (meta.chordQuality || '').toLowerCase();
+        const inversion = (meta.inversionType || '').toLowerCase();
+        const chordType = (meta.chordType || '').toLowerCase();
+        
+        const isTriad = chordType.includes('triad') || chordType === 'full-triad' || chordType === 'full-chords';
+        const isRootMatch = metaRoot === normalizedRoot;
+        const isQualityMatch = allowedQualities.includes(metaQuality);
+        const isRootPosition = !inversion || inversion === 'root-position';
+        
+        return isRootMatch && isQualityMatch && isRootPosition && isTriad;
+    });
+    
+    const selected = candidates[0] || trackingState.chordsMeta.find(meta => extractRootFromChordName(meta.chordName) === normalizedRoot);
+    return selected ? selected.chordId : null;
+}
+
+function refreshExpectedIdsFromConfig() {
+    trackingState.mode = pianoMapper.config.mode;
+    
+    if (trackingState.mode === 'Note' && trackingState.noteIdByPitchClass.size > 0) {
+        const upPitch = getPitchClassFromNote(pianoMapper.config.upNote);
+        const downPitch = getPitchClassFromNote(pianoMapper.config.downNote);
+        trackingState.expectedIds.up = upPitch !== null ? (trackingState.noteIdByPitchClass.get(upPitch) ?? null) : null;
+        trackingState.expectedIds.down = downPitch !== null ? (trackingState.noteIdByPitchClass.get(downPitch) ?? null) : null;
+    } else if (trackingState.mode === 'Chord' && trackingState.chordsMeta.length > 0) {
+        trackingState.expectedIds.up = findChordIdForConfig(pianoMapper.config.upChord, pianoMapper.config.upChordType);
+        trackingState.expectedIds.down = findChordIdForConfig(pianoMapper.config.downChord, pianoMapper.config.downChordType);
+    } else {
+        trackingState.expectedIds.up = null;
+        trackingState.expectedIds.down = null;
+    }
+}
+
+async function configureTrackingForPiano() {
+    trackingState.enabled = TRACKING_SETTINGS.enabled && usePiano;
+    
+    if (!trackingState.enabled) {
+        trackingState.ready = false;
+        return;
+    }
+    
+    if (typeof PianoTracker === 'undefined') {
+        console.warn('PianoTracker library not available. Disabling tracking.');
+        trackingState.enabled = false;
+        trackingState.ready = false;
+        return;
+    }
+    
+    if (!trackingState.tracker) {
+        trackingState.tracker = new PianoTracker(
+            TRACKING_SETTINGS.apiBaseUrl,
+            TRACKING_SETTINGS.userId,
+            TRACKING_SETTINGS.gameId,
+            {
+                batchMode: true,
+                batchSize: TRACKING_SETTINGS.batchSize,
+                debug: TRACKING_SETTINGS.debug
+            }
+        );
+    }
+    
+    try {
+        await loadTrackingReferenceData();
+        refreshExpectedIdsFromConfig();
+        trackingState.ready = Boolean(trackingState.expectedIds.up && trackingState.expectedIds.down);
+        
+        if (!trackingState.ready) {
+            console.warn('Tracking reference data loaded, but expected IDs could not be resolved for the current configuration.');
+        } else {
+            console.log('Tracking configured. ProgressionKeyId:', trackingState.progressionKeyId);
+        }
+    } catch (error) {
+        console.error('Failed to configure tracking:', error);
+        trackingState.ready = false;
+    }
+}
+
+async function loadTrackingReferenceData() {
+    if (trackingState.ready && trackingState.noteIdByPitchClass.size > 0) {
+        return;
+    }
+    
+    const baseUrl = TRACKING_SETTINGS.apiBaseUrl.replace(/\/$/, '');
+    const keysData = await fetchJson(`${baseUrl}/api/keys`);
+    const keys = Array.isArray(keysData) ? keysData : keysData.keys || [];
+    const keyEntry = keys.find(k => (k.keyName || k.name) === TRACKING_SETTINGS.keyName);
+    
+    if (!keyEntry) {
+        throw new Error(`Key "${TRACKING_SETTINGS.keyName}" not found on API.`);
+    }
+    
+    trackingState.keyId = keyEntry.keyId ?? keyEntry.id ?? keyEntry.KeyId ?? null;
+    
+    if (trackingState.keyId === null) {
+        throw new Error('Could not resolve keyId for tracking.');
+    }
+    
+    const chordsResponse = await fetchJson(`${baseUrl}/api/chords?keyId=${trackingState.keyId}`);
+    const chords = Array.isArray(chordsResponse) ? chordsResponse : chordsResponse.chords || [];
+    buildChordLookups(chords);
+    
+    await resolveProgressionKeyId(baseUrl);
+}
+
+async function resolveProgressionKeyId(baseUrl) {
+    if (!TRACKING_SETTINGS.skillLevelId) {
+        trackingState.progressionKeyId = null;
+        return;
+    }
+    
+    const response = await fetchJson(`${baseUrl}/api/progressions/level/${TRACKING_SETTINGS.skillLevelId}`);
+    const progressions = Array.isArray(response) ? response : response.progressions || [];
+    
+    const targetKey = TRACKING_SETTINGS.keyName;
+    let selection = null;
+    
+    if (TRACKING_SETTINGS.progressionPreference.requiredOnly) {
+        selection = progressions.find(p => (p.keyName === targetKey || p.key === targetKey) && p.isRequired);
+    }
+    
+    if (!selection) {
+        selection = progressions.find(p => (p.keyName === targetKey || p.key === targetKey));
+    }
+    
+    if (!selection) {
+        selection = progressions[0] || null;
+    }
+    
+    trackingState.progressionKeyId = selection ? (selection.progressionKeyId ?? selection.id ?? null) : null;
+}
+
+async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText} for ${url}`);
+    }
+    return response.json();
+}
+
+function isTrackingConfigured() {
+    return trackingState.enabled && trackingState.ready && !!trackingState.tracker;
+}
+
+async function startTrackingSession() {
+    if (!isTrackingConfigured()) {
+        return;
+    }
+    
+    trackingState.sequence = 0;
+    trackingState.successCount = 0;
+    trackingState.errorCount = 0;
+    trackingState.lastPromptTimes.up = Date.now();
+    trackingState.lastPromptTimes.down = Date.now();
+    
+    try {
+        const sessionId = await trackingState.tracker.startSession(trackingState.progressionKeyId);
+        trackingState.sessionActive = Boolean(sessionId);
+        
+        if (!trackingState.sessionActive) {
+            console.warn('Tracking session did not start (sessionId was null).');
+        }
+    } catch (error) {
+        console.error('Failed to start tracking session:', error);
+        trackingState.sessionActive = false;
+    }
+}
+
+async function endTrackingSession() {
+    if (!trackingState.sessionActive || !trackingState.tracker) {
+        trackingState.sessionActive = false;
+        return;
+    }
+    
+    trackingState.sessionActive = false;
+    
+    try {
+        const score = Math.max(0, trackingState.successCount * 10 - trackingState.errorCount * 2);
+        await trackingState.tracker.endSession(score, trackingState.successCount, trackingState.errorCount);
+    } catch (error) {
+        console.error('Failed to end tracking session:', error);
+    } finally {
+        trackingState.lastPromptTimes.up = null;
+        trackingState.lastPromptTimes.down = null;
+    }
+}
+
+function handlePianoAction(action, details) {
+    if (!trackingState.sessionActive || !isTrackingConfigured()) {
+        return;
+    }
+    
+    const expectedId = trackingState.expectedIds[action];
+    if (!expectedId) return;
+    
+    const playedId = lookupPlayedId(details);
+    const timestamp = details?.timestamp || Date.now();
+    const responseTime = computeResponseTime(action, timestamp);
+    const position = ++trackingState.sequence;
+    const hand = trackingState.mode === 'Note' ? 'right' : 'both';
+    
+    if (trackingState.mode === 'Note') {
+        trackingState.tracker.trackNote(expectedId, playedId ?? null, responseTime, position, hand);
+    } else {
+        trackingState.tracker.trackChord(expectedId, playedId ?? null, responseTime, position, hand);
+    }
+    
+    if (playedId !== null && playedId === expectedId) {
+        trackingState.successCount += 1;
+    } else {
+        trackingState.errorCount += 1;
+    }
+}
+
+function lookupPlayedId(details) {
+    if (!details) return null;
+    
+    if (trackingState.mode === 'Note') {
+        const midi = typeof details.triggerNote === 'number'
+            ? details.triggerNote
+            : (Array.isArray(details.midiNotes) && details.midiNotes.length ? details.midiNotes[0] : null);
+        
+        if (typeof midi !== 'number') return null;
+        const pitchClass = ((Math.round(midi) % 12) + 12) % 12;
+        return trackingState.noteIdByPitchClass.get(pitchClass) ?? null;
+    }
+    
+    const midiNotes = Array.isArray(details.midiNotes) ? details.midiNotes : [];
+    if (!midiNotes.length) return null;
+    const signature = buildChordSignature(midiNotes);
+    return trackingState.chordIdBySignature.get(signature) ?? null;
+}
+
+function computeResponseTime(action, timestamp) {
+    const now = typeof timestamp === 'number' ? timestamp : Date.now();
+    const previous = trackingState.lastPromptTimes[action] ?? now;
+    trackingState.lastPromptTimes[action] = now;
+    return Math.max(0, Math.round(now - previous));
+}
 
 // Initialize on load
 init();
