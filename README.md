@@ -17,18 +17,17 @@ This repository contains two versions of the game:
   - Green pipes with highlights
   - Collision detection
 
-### `piano-input` Branch - Piano/MIDI Version with 2-Way Controls
-- **Controls**: Two-way movement (UP and DOWN arrows, or piano/MIDI input)
-- **Physics**: Momentum-based with thrust and drag
-- **Files**: `index.html`, `style.css`, `game.js`, `piano-input-mapper.js`
-- **Features**:
-  - All features from original version
+### `main` Branch - HTML Games Collection
+- **Structure**: Root landing page plus dedicated subfolders for each game
+- **Current Games**:
+  - `flappy-bird/` — Piano/MIDI-enabled Flappy Bird variant
+- **Flappy Bird Features**:
   - Piano configuration UI
   - MIDI input support via Web MIDI API
   - Note mode: Single notes trigger up/down
   - Chord mode: Chords trigger up/down
   - Supports all 12 notes and chord types (Major, Minor, Diminished, Augmented)
-- Optional performance tracking via the Piano Skill Tracker API (`piano-tracker.js`)
+  - Optional performance tracking via the Piano Skill Tracker API (`piano-tracker.js`)
   - Keyboard fallback if no MIDI device available
   - Reusable `PianoInputMapper` class for other games
 
@@ -41,8 +40,8 @@ This repository contains two versions of the game:
 4. Press UP ARROW or SPACE to make the bird jump
 5. Avoid pipes, ground, and ceiling
 
-### Piano Version (piano-input branch)
-1. Open `index.html` in a web browser
+### Flappy Bird Edition
+1. Open `flappy-bird/index.html` in a web browser
 2. Configure piano input (or skip to use keyboard)
    - Choose Note or Chord mode
    - Select which notes/chords control up and down
@@ -70,7 +69,7 @@ git checkout piano-input
 - Jump strength: -4
 - Canvas size: 400x600
 
-### Piano Version
+### Flappy Bird Edition
 - Momentum-based physics
 - Up thrust: -0.5
 - Down thrust: 0.5
@@ -82,7 +81,7 @@ git checkout piano-input
 
 ## Performance Tracking Integration
 
-The piano build includes optional reporting through the Piano Skill Tracker system:
+The Flappy Bird build includes optional reporting through the Piano Skill Tracker system:
 
 - `piano-tracker.js` is bundled locally (copied from the tracker game's integration package).  
 - Configure the API endpoint and identifiers inside the `TRACKING_SETTINGS` block in `game.js`.

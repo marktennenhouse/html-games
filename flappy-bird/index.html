@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <!-- Piano Configuration Screen -->
+        <div id="pianoConfigScreen" class="overlay">
+            <div class="menu config-menu">
+                <h1>Piano Configuration</h1>
+                <p class="instructions">Configure your piano input</p>
+                
+                <div class="config-section">
+                    <label for="inputMode">Input Mode:</label>
+                    <select id="inputMode" class="config-select">
+                        <option value="Note">Single Notes</option>
+                        <option value="Chord">Chords</option>
+                    </select>
+                </div>
+                
+                <!-- Note Mode Configuration -->
+                <div id="noteModeConfig" class="config-section">
+                    <label for="upNote">Up Note:</label>
+                    <select id="upNote" class="config-select">
+                        <option value="C">C</option>
+                        <option value="C#">C# / Db</option>
+                        <option value="D">D</option>
+                        <option value="D#">D# / Eb</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                        <option value="F#">F# / Gb</option>
+                        <option value="G">G</option>
+                        <option value="G#">G# / Ab</option>
+                        <option value="A">A</option>
+                        <option value="A#">A# / Bb</option>
+                        <option value="B">B</option>
+                    </select>
+                    
+                    <label for="downNote">Down Note:</label>
+                    <select id="downNote" class="config-select">
+                        <option value="C">C</option>
+                        <option value="C#">C# / Db</option>
+                        <option value="D">D</option>
+                        <option value="D#">D# / Eb</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                        <option value="F#">F# / Gb</option>
+                        <option value="G" selected>G</option>
+                        <option value="G#">G# / Ab</option>
+                        <option value="A">A</option>
+                        <option value="A#">A# / Bb</option>
+                        <option value="B">B</option>
+                    </select>
+                </div>
+                
+                <!-- Chord Mode Configuration -->
+                <div id="chordModeConfig" class="config-section hidden">
+                    <label for="upChord">Up Chord Root:</label>
+                    <select id="upChord" class="config-select">
+                        <option value="C">C</option>
+                        <option value="C#">C# / Db</option>
+                        <option value="D">D</option>
+                        <option value="D#">D# / Eb</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                        <option value="F#">F# / Gb</option>
+                        <option value="G">G</option>
+                        <option value="G#">G# / Ab</option>
+                        <option value="A">A</option>
+                        <option value="A#">A# / Bb</option>
+                        <option value="B">B</option>
+                    </select>
+                    
+                    <label for="upChordType">Up Chord Type:</label>
+                    <select id="upChordType" class="config-select">
+                        <option value="Major">Major</option>
+                        <option value="Minor">Minor</option>
+                        <option value="Diminished">Diminished</option>
+                        <option value="Augmented">Augmented</option>
+                    </select>
+                    
+                    <label for="downChord">Down Chord Root:</label>
+                    <select id="downChord" class="config-select">
+                        <option value="C">C</option>
+                        <option value="C#">C# / Db</option>
+                        <option value="D">D</option>
+                        <option value="D#">D# / Eb</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                        <option value="F#">F# / Gb</option>
+                        <option value="G" selected>G</option>
+                        <option value="G#">G# / Ab</option>
+                        <option value="A">A</option>
+                        <option value="A#">A# / Bb</option>
+                        <option value="B">B</option>
+                    </select>
+                    
+                    <label for="downChordType">Down Chord Type:</label>
+                    <select id="downChordType" class="config-select">
+                        <option value="Major">Major</option>
+                        <option value="Minor">Minor</option>
+                        <option value="Diminished">Diminished</option>
+                        <option value="Augmented">Augmented</option>
+                    </select>
+                </div>
+                
+                <div class="config-preview">
+                    <strong>Current Setup:</strong>
+                    <p id="configPreview">Note Mode: Up=C, Down=G</p>
+                </div>
+                
+                <div id="midiStatus" class="midi-status">
+                    <div class="status-indicator">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Not connected</span>
+                    </div>
+                    <div id="deviceList" class="device-list"></div>
+                </div>
+                
+                <button id="savePianoConfig" class="game-button">Connect & Continue</button>
+                <button id="skipPianoConfig" class="game-button secondary">Use Keyboard Instead</button>
+            </div>
+        </div>
+        
+        <!-- Start Screen -->
+        <div id="startScreen" class="overlay hidden">
+            <div class="menu">
+                <h1>Flappy Bird</h1>
+                <p class="instructions">Press <strong>UP ARROW</strong> or <strong>DOWN ARROW</strong> to move</p>
+                
+                <div id="gameInputStatus" class="input-status hidden">
+                    <div class="status-indicator">
+                        <span class="status-dot connected" id="gameStatusDot"></span>
+                        <span id="gameStatusText"></span>
+                    </div>
+                </div>
+                
+                <div class="speed-control">
+                    <label for="speedSlider">Game Speed:</label>
+                    <div class="slider-container">
+                        <span class="speed-label">0.5x</span>
+                        <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1">
+                        <span class="speed-label">2.0x</span>
+                    </div>
+                    <div class="speed-value">Current: <span id="speedValue">1.0x</span></div>
+                </div>
+                
+                <div class="practice-mode">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="practiceMode">
+                        <span>Practice Mode (No collision damage)</span>
+                    </label>
+                </div>
+                
+                <button id="startButton" class="game-button">Start Game</button>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="overlay hidden">
+            <div class="menu">
+                <h1>Game Over!</h1>
+                <button id="restartButton" class="game-button">Play Again</button>
+            </div>
+        </div>
+        
+        <!-- Pause Screen -->
+        <div id="pauseScreen" class="overlay hidden">
+            <div class="menu">
+                <h1>Paused</h1>
+                <p class="instructions">Press <strong>ESC</strong> or <strong>P</strong> to resume</p>
+                <button id="resumeButton" class="game-button">Resume Game</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="piano-input-mapper.js"></script>
+    <script src="piano-tracker.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
