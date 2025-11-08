@@ -30,6 +30,7 @@ This repository contains two versions of the game:
   - Optional performance tracking via the Piano Skill Tracker API (`piano-tracker.js`)
   - Keyboard fallback if no MIDI device available
   - Reusable `PianoInputMapper` class for other games
+- Mobile-friendly on-screen controls for touch devices
 
 ## How to Play
 
@@ -42,13 +43,13 @@ This repository contains two versions of the game:
 
 ### Flappy Bird Edition
 1. Open `flappy-bird/index.html` in a web browser
-2. Configure piano input (or skip to use keyboard)
+2. Configure piano input (or skip to use keyboard/touch only)
    - Choose Note or Chord mode
    - Select which notes/chords control up and down
    - (Optional) Ensure the Piano Skill Tracker API is reachable if you want performance logs
 3. Adjust game speed if desired
-4. Click "Start Game"
-5. Use UP/DOWN arrows or your configured piano input to control the bird
+4. Click/tap "Start Game"
+5. Use UP/DOWN arrows, tap the on-screen touch controls, or play via your configured piano input to control the bird
 6. Avoid pipes, ground, and ceiling
 
 ## Switching Between Versions
@@ -78,6 +79,7 @@ git checkout piano-input
 - Velocity drag: 0.98x per frame
 - State-based input system
 - MIDI input via Web MIDI API
+- Dedicated touch controls for mobile play (Up/Down buttons with multi-touch support)
 
 ## Performance Tracking Integration
 

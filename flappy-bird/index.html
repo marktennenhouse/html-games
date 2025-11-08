@@ -132,7 +132,7 @@
         <div id="startScreen" class="overlay hidden">
             <div class="menu">
                 <h1>Flappy Bird</h1>
-                <p class="instructions">Press <strong>UP ARROW</strong> or <strong>DOWN ARROW</strong> to move</p>
+                <p class="instructions">Press <strong>UP / DOWN ARROW</strong>, <strong>tap</strong> the on-screen controls, or use your configured piano input to fly.</p>
                 
                 <div id="gameInputStatus" class="input-status hidden">
                     <div class="status-indicator">
@@ -178,6 +178,15 @@
                 <button id="resumeButton" class="game-button">Resume Game</button>
             </div>
         </div>
+    </div>
+
+    <div class="touch-controls" id="touchControls">
+        <button id="touchUpZone" class="touch-button touch-up" aria-label="Flap Up">
+            <span>Up</span>
+        </button>
+        <button id="touchDownZone" class="touch-button touch-down" aria-label="Dive Down">
+            <span>Down</span>
+        </button>
     </div>
     
     <script src="piano-input-mapper.js"></script>

@@ -12,6 +12,7 @@ body {
     align-items: center;
     min-height: 100vh;
     overflow: hidden;
+    touch-action: manipulation;
 }
 
 .container {
@@ -24,6 +25,7 @@ body {
 #gameCanvas {
     display: block;
     background: #70c5ce;
+    touch-action: none;
 }
 
 .overlay {
@@ -323,4 +325,62 @@ h1 {
     font-size: 0.85em;
     color: #2ecc71;
     font-weight: 500;
+}
+
+/* Touch Controls */
+.touch-controls {
+    position: fixed;
+    inset: auto 0 0 0;
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    pointer-events: none;
+    z-index: 20;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.35) 35%, rgba(15, 23, 42, 0.65) 100%);
+    backdrop-filter: blur(4px);
+}
+
+.touch-button {
+    flex: 1;
+    pointer-events: auto;
+    border: none;
+    border-radius: 16px;
+    font-size: 1.2em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: white;
+    padding: 18px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.35);
+    touch-action: none;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.touch-button span {
+    pointer-events: none;
+}
+
+.touch-button:active,
+.touch-button.touch-active {
+    transform: translateY(2px);
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.45);
+    opacity: 0.85;
+}
+
+.touch-button.touch-up {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.95), rgba(29, 78, 216, 0.95));
+}
+
+.touch-button.touch-down {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.95), rgba(180, 57, 33, 0.95));
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .touch-controls {
+        display: none;
+    }
 }

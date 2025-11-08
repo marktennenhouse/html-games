@@ -12,6 +12,9 @@ const restartButton = document.getElementById('restartButton');
 const resumeButton = document.getElementById('resumeButton');
 const speedSlider = document.getElementById('speedSlider');
 const speedValue = document.getElementById('speedValue');
+const touchControls = document.getElementById('touchControls');
+const touchUpZone = document.getElementById('touchUpZone');
+const touchDownZone = document.getElementById('touchDownZone');
 
 // Piano input mapper
 const pianoMapper = new PianoInputMapper({
@@ -115,6 +118,7 @@ function init() {
     lastCollisionY = 0;
     collisionPipe = null;
     collisionTime = 0;
+    resetInputState();
 }
 
 // Update speed value display
@@ -178,6 +182,8 @@ document.addEventListener('keyup', (e) => {
         keyboardState.down = false;
     }
 });
+
+setupTouchControls();
 
 // Draw bird
 function drawBird() {
@@ -476,11 +482,13 @@ function gameOver() {
     gameRunning = false;
     cancelAnimationFrame(animationId);
     gameOverScreen.classList.remove('hidden');
+    resetInputState();
     endTrackingSession();
 }
 
 // Pause game
 function pauseGame() {
+    resetInputState();
     gamePaused = true;
     pauseScreen.classList.remove('hidden');
 }
@@ -489,6 +497,7 @@ function pauseGame() {
 function resumeGame() {
     gamePaused = false;
     pauseScreen.classList.add('hidden');
+    resetInputState();
     gameLoop(); // Restart the game loop
 }
 
@@ -1027,6 +1036,96 @@ function computeResponseTime(action, timestamp) {
     trackingState.lastPromptTimes[action] = now;
     return Math.max(0, Math.round(now - previous));
 }
+
+const touchState = { up: 0, down: 0 };
+
+function resetInputState() {
+    keyboardState.up = false;
+    keyboardState.down = false;
+    touchState.up = 0;
+    touchState.down = 0;
+    
+    if (touchUpZone) {
+        touchUpZone.classList.remove('touch-active');
+    }
+    if (touchDownZone) {
+        touchDownZone.classList.remove('touch-active');
+    }
+}
+
+function supportsTouchInput() {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+function setupTouchControls() {
+    if (!touchControls) {
+        return;
+    }
+    
+    if (!supportsTouchInput()) {
+        touchControls.style.display = 'none';
+        return;
+    }
+    
+    const bindInteractiveButton = (element, action) => {
+        if (!element) return;
+        
+        const setActive = () => {
+            keyboardState[action] = true;
+            element.classList.add('touch-active');
+        };
+        
+        const clearActive = () => {
+            keyboardState[action] = false;
+            element.classList.remove('touch-active');
+        };
+        
+        element.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            touchState[action] = event.targetTouches ? event.targetTouches.length : 1;
+            setActive();
+        }, { passive: false });
+        
+        element.addEventListener('touchend', (event) => {
+            event.preventDefault();
+            const remaining = event.targetTouches ? event.targetTouches.length : 0;
+            touchState[action] = remaining;
+            if (remaining === 0) {
+                clearActive();
+            }
+        }, { passive: false });
+        
+        element.addEventListener('touchcancel', (event) => {
+            event.preventDefault();
+            touchState[action] = 0;
+            clearActive();
+        }, { passive: false });
+        
+        element.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            setActive();
+        });
+        
+        element.addEventListener('mouseup', (event) => {
+            event.preventDefault();
+            clearActive();
+        });
+        
+        element.addEventListener('mouseleave', () => {
+            clearActive();
+        });
+    };
+    
+    bindInteractiveButton(touchUpZone, 'up');
+    bindInteractiveButton(touchDownZone, 'down');
+}
+
+window.addEventListener('blur', resetInputState);
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        resetInputState();
+    }
+});
 
 // Initialize on load
 init();
