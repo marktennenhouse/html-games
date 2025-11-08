@@ -12,6 +12,9 @@ const restartButton = document.getElementById('restartButton');
 const resumeButton = document.getElementById('resumeButton');
 const speedSlider = document.getElementById('speedSlider');
 const speedValue = document.getElementById('speedValue');
+const livesSlider = document.getElementById('livesSlider');
+const livesValue = document.getElementById('livesValue');
+const livesDisplay = document.getElementById('livesDisplay');
 const touchControls = document.getElementById('touchControls');
 const touchUpZone = document.getElementById('touchUpZone');
 const touchDownZone = document.getElementById('touchDownZone');
@@ -70,6 +73,8 @@ let gameRunning = false;
 let gamePaused = false;
 let animationId = null;
 let practiceMode = false;
+let totalLives = 3;
+let remainingLives = 3;
 
 // Practice mode scroll control
 let pipeScrollEnabled = true;
@@ -108,6 +113,7 @@ let pipeFrequency = 90; // frames between pipes
 
 // Initialize game
 function init() {
+    bird.x = 80;
     bird.y = canvas.height / 2;
     bird.velocity = 0;
     bird.velocityX = 0;
@@ -126,13 +132,20 @@ speedSlider.addEventListener('input', (e) => {
     speedValue.textContent = parseFloat(e.target.value).toFixed(1) + 'x';
 });
 
+livesSlider.addEventListener('input', (e) => {
+    livesValue.textContent = parseInt(e.target.value, 10);
+});
+
 // Start game
 startButton.addEventListener('click', async () => {
     gameSpeed = parseFloat(speedSlider.value);
     practiceMode = document.getElementById('practiceMode').checked;
+    totalLives = parseInt(livesSlider.value, 10);
+    remainingLives = totalLives;
     startScreen.classList.add('hidden');
     gameRunning = true;
     init();
+    updateLivesDisplay();
     await startTrackingSession();
     showTouchControls();
     gameLoop();
@@ -142,7 +155,9 @@ startButton.addEventListener('click', async () => {
 restartButton.addEventListener('click', () => {
     gameOverScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
+    resetInputState();
     hideTouchControls();
+    updateLivesDisplay(true);
     init();
 });
 
@@ -361,10 +376,12 @@ function checkCollisions() {
         return;
     }
     
-    // Normal mode: Game over on collision
+    // Normal mode: Check lives on collision
     // Ground and ceiling collision
     if (bird.y + bird.radius > canvas.height - 50 || bird.y - bird.radius < 0) {
-        gameOver();
+        if (handleLifeLoss()) {
+            return;
+        }
         return;
     }
     
@@ -374,7 +391,9 @@ function checkCollisions() {
         if (bird.x + bird.radius > pipe.x && bird.x - bird.radius < pipe.x + pipeWidth) {
             // Check if bird hits top or bottom pipe
             if (bird.y - bird.radius < pipe.top || bird.y + bird.radius > pipe.bottom) {
-                gameOver();
+                if (handleLifeLoss()) {
+                    return;
+                }
             }
         }
     });
@@ -1046,6 +1065,46 @@ function computeResponseTime(action, timestamp) {
     return Math.max(0, Math.round(now - previous));
 }
 
+function handleLifeLoss() {
+    if (practiceMode) {
+        return false;
+    }
+
+    if (remainingLives > 1) {
+        remainingLives -= 1;
+        updateLivesDisplay();
+        resetAfterLifeLoss();
+        return false;
+    }
+
+    remainingLives = 0;
+    updateLivesDisplay();
+    gameOver();
+    return true;
+}
+
+function resetAfterLifeLoss() {
+    resetInputState();
+    init();
+}
+
+function updateLivesDisplay(forceReset = false) {
+    if (!livesDisplay) {
+        return;
+    }
+
+    if (forceReset) {
+        livesDisplay.textContent = 'Lives: -';
+        return;
+    }
+
+    if (practiceMode) {
+        livesDisplay.textContent = 'Lives: ∞';
+    } else {
+        livesDisplay.textContent = `Lives: ${remainingLives}/${totalLives}`;
+    }
+}
+
 const touchState = { up: 0, down: 0 };
 
 function resetInputState() {
@@ -1152,4 +1211,6 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Initialize on load
+updateLivesDisplay(true);
 init();
+

@@ -76,7 +76,8 @@ h1 {
     margin-bottom: 30px;
 }
 
-.speed-control label {
+.speed-control label,
+.lives-control label {
     display: block;
     color: #333;
     font-weight: bold;
@@ -141,6 +142,14 @@ h1 {
     color: #667eea;
     font-weight: bold;
     font-size: 1.1em;
+}
+
+.lives-control {
+    margin-bottom: 25px;
+}
+
+.lives-control .speed-value span {
+    color: #ff8a65;
 }
 
 .practice-mode {
@@ -387,4 +396,27 @@ h1 {
     .touch-controls {
         display: none;
     }
+}
+
+/* HUD */
+.hud {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 8;
+    display: flex;
+    gap: 12px;
+    font-family: 'Arial', sans-serif;
+}
+
+.hud-item {
+    background: rgba(15, 23, 42, 0.7);
+    color: #f8fafc;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95em;
+    letter-spacing: 0.02em;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.35);
 }

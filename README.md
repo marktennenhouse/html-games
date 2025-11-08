@@ -30,7 +30,8 @@ This repository contains two versions of the game:
   - Optional performance tracking via the Piano Skill Tracker API (`piano-tracker.js`)
   - Keyboard fallback if no MIDI device available
   - Reusable `PianoInputMapper` class for other games
-- Mobile-friendly on-screen controls for touch devices
+  - Mobile-friendly on-screen controls for touch devices
+  - Configurable lives system (1–10) with HUD display
 
 ## How to Play
 
@@ -48,9 +49,10 @@ This repository contains two versions of the game:
    - Select which notes/chords control up and down
    - (Optional) Ensure the Piano Skill Tracker API is reachable if you want performance logs
 3. Adjust game speed if desired
-4. Click/tap "Start Game"
-5. Use UP/DOWN arrows, tap the on-screen touch controls, or play via your configured piano input to control the bird
-6. Avoid pipes, ground, and ceiling
+4. Choose how many lives (1–10) you want for the run
+5. Click/tap "Start Game"
+6. Use UP/DOWN arrows, tap the on-screen touch controls, or play via your configured piano input to control the bird
+7. Each collision consumes a life; the HUD at the top shows remaining/total lives. When they reach zero, the run ends. Avoid pipes, ground, and ceiling to keep flying.
 
 ## Switching Between Versions
 
@@ -72,14 +74,15 @@ git checkout piano-input
 
 ### Flappy Bird Edition
 - Momentum-based physics
-- Up thrust: -0.5
-- Down thrust: 0.5
-- Light gravity: 0.15 (when no input)
+- Up thrust: -0.32
+- Down thrust: 0.40
+- Light gravity: 0.02 (when no input)
 - Max velocity: 5
 - Velocity drag: 0.98x per frame
 - State-based input system
 - MIDI input via Web MIDI API
 - Dedicated touch controls for mobile play (Up/Down buttons with multi-touch support)
+- Adjustable 1–10 life system with on-screen HUD
 
 ## Performance Tracking Integration
 
