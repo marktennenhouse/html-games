@@ -134,6 +134,7 @@ startButton.addEventListener('click', async () => {
     gameRunning = true;
     init();
     await startTrackingSession();
+    showTouchControls();
     gameLoop();
 });
 
@@ -141,6 +142,7 @@ startButton.addEventListener('click', async () => {
 restartButton.addEventListener('click', () => {
     gameOverScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
+    hideTouchControls();
     init();
 });
 
@@ -483,6 +485,7 @@ function gameOver() {
     cancelAnimationFrame(animationId);
     gameOverScreen.classList.remove('hidden');
     resetInputState();
+    hideTouchControls();
     endTrackingSession();
 }
 
@@ -490,6 +493,7 @@ function gameOver() {
 function pauseGame() {
     resetInputState();
     gamePaused = true;
+    hideTouchControls();
     pauseScreen.classList.remove('hidden');
 }
 
@@ -497,6 +501,9 @@ function pauseGame() {
 function resumeGame() {
     gamePaused = false;
     pauseScreen.classList.add('hidden');
+    if (gameRunning) {
+        showTouchControls();
+    }
     resetInputState();
     gameLoop(); // Restart the game loop
 }
@@ -643,12 +650,14 @@ savePianoConfigButton.addEventListener('click', async () => {
         pianoConfigScreen.classList.add('hidden');
         startScreen.classList.remove('hidden');
         updateGameInputStatus();
+        hideTouchControls();
         console.log('Piano input enabled:', pianoMapper.getConfigDescription());
     } else {
         updateConnectionStatus();
         trackingState.enabled = false;
         trackingState.ready = false;
         alert('Could not connect to MIDI device. Please check your piano connection and try again, or use keyboard instead.');
+        hideTouchControls();
     }
 });
 
@@ -1053,6 +1062,20 @@ function resetInputState() {
     }
 }
 
+function showTouchControls() {
+    if (!touchControls || !supportsTouchInput()) {
+        return;
+    }
+    touchControls.classList.remove('hidden');
+}
+
+function hideTouchControls() {
+    if (!touchControls) {
+        return;
+    }
+    touchControls.classList.add('hidden');
+}
+
 function supportsTouchInput() {
     return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
@@ -1118,6 +1141,7 @@ function setupTouchControls() {
     
     bindInteractiveButton(touchUpZone, 'up');
     bindInteractiveButton(touchDownZone, 'down');
+    hideTouchControls();
 }
 
 window.addEventListener('blur', resetInputState);

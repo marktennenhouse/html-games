@@ -340,6 +340,10 @@ h1 {
     backdrop-filter: blur(4px);
 }
 
+.touch-controls.hidden {
+    display: none !important;
+}
+
 .touch-button {
     flex: 1;
     pointer-events: auto;
