@@ -42,10 +42,10 @@ const bird = {
     radius: 15,
     velocity: 0,
     velocityX: 0,         // Horizontal velocity for practice mode bounces
-    gravity: 0.15,        // Light gravity when no input
-    upThrust: -0.5,       // Upward acceleration
-    downThrust: 0.5,      // Downward acceleration
-    maxVelocity: 5,       // Speed cap
+    gravity: 0.05,        // Very light gravity when no input
+    upThrust: -0.35,      // Upward acceleration from key press
+    downThrust: 0.35,     // Downward acceleration from key press
+    maxVelocity: 4,       // Speed cap
     rotation: 0
 };
 
